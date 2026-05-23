@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Async collaboration — case study mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Slack-ish dark surface */
+    --pane:        #1a1d21;
+    --pane-hover:  #1e2125;
+    --line:        #2a2d31;
+    --text:        #d3d4d5;
+    --text-soft:   #9a9b9d;
+    --text-faint:  #6c6d6f;
+    --name:        #e7e7e8;
+    --pill-bg:     #232629;
+    /* page */
+    --paper:       #f2eee7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--paper);
+    color: #2a2825;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(48px, 9vw, 150px);
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ---- the cropped screenshot ---- */
+  .shot {
+    position: relative;
+    z-index: 1;
+    width: 660px;
+    max-width: 100%;
+    background: var(--pane);
+    border-radius: 9px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(40,36,30,0.03),
+      0 2px 6px rgba(40,36,30,0.04),
+      0 14px 34px -10px rgba(40,36,30,0.10),
+      0 42px 72px -34px rgba(40,36,30,0.16);
+  }
+
+  /* faint scrollbar sliver, so it reads as a live app crop */
+  .shot::after {
+    content: "";
+    position: absolute;
+    top: 96px;
+    bottom: 14px;
+    right: 4px;
+    width: 6px;
+    border-radius: 6px;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0.10) 0%,
+      rgba(255,255,255,0.10) 34%,
+      rgba(255,255,255,0) 34%);
+    pointer-events: none;
+  }
+
+  .thread { padding: 4px 24px 26px; }
+
+  /* a half-message bleeding off the top crop */
+  .crop-top {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 78%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 78%);
+    opacity: 0.62;
+    margin: 0 0 2px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 16px;
+    padding: 9px 8px 8px;
+    border-radius: 7px;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 15px;
+    color: rgba(255,255,255,0.86);
+    user-select: none;
+  }
+  .av-priya { background: #57636a; }
+  .av-yusuf { background: #4f6360; }
+  .av-maya  { background: #876e64; }
+
+  .meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 1px;
+  }
+  .who {
+    font-weight: 900;
+    font-size: 15px;
+    color: var(--name);
+    letter-spacing: -0.1px;
+  }
+  .when {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-weight: 400;
+  }
+  .body {
+    font-size: 15px;
+    line-height: 1.465;
+    color: var(--text);
+    max-width: 49ch;
+  }
+
+  /* day divider */
+  .divider {
+    position: relative;
+    text-align: center;
+    margin: 13px 0 7px;
+    height: 0;
+    border-top: 1px solid var(--line);
+  }
+  .divider span {
+    position: relative;
+    top: -10px;
+    display: inline-block;
+    background: var(--pane);
+    border: 1px solid #34373b;
+    border-radius: 14px;
+    padding: 3px 13px;
+    font-size: 12.5px;
+    font-weight: 900;
+    color: var(--text);
+  }
+
+  /* ---- dropbox file unfurl ---- */
+  .file {
+    margin: 9px 8px 0 60px;
+    max-width: 416px;
+    display: flex;
+    gap: 13px;
+    padding: 13px 15px 14px 14px;
+    background: #1d2024;
+    border: 1px solid #2c2f33;
+    border-left: 3px solid #54707f;
+    border-radius: 6px;
+  }
+
+  .thumb {
+    flex: none;
+    width: 96px;
+    height: 68px;
+    border-radius: 4px;
+    background: #24272b;
+    border: 1px solid #303338;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+  /* three muted artboards — a believable .fig thumbnail, no arrows */
+  .frame {
+    width: 17px;
+    height: 36px;
+    border-radius: 2.5px;
+    background: #2f3338;
+    border: 1px solid #3a3e44;
+    padding: 4px 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .frame i { display: block; height: 2px; border-radius: 1px; background: #41464c; }
+  .frame i:nth-child(1) { width: 70%; }
+  .frame i:nth-child(2) { width: 100%; height: 9px; background: #383c42; }
+  .frame i:nth-child(3) { width: 85%; }
+  .frame i:nth-child(4) { width: 55%; }
+  .frame.mid { height: 40px; }
+
+  .file-info { min-width: 0; padding-top: 1px; }
+  .source {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+  }
+  .source svg { display: block; }
+  .source span {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-soft);
+    letter-spacing: 0.1px;
+  }
+  .fname {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #dcdddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fmeta {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+</style>
+</head>
+<body>
+
+  <div class="shot" role="img"
+       aria-label="Cropped screenshot of a Slack conversation about reviewing a Dropbox file">
+    <div class="thread">
+
+      <!-- a previous message bleeding off the top of the crop -->
+      <div class="row crop-top">
+        <div class="avatar av-priya">P</div>
+        <div>
+          <div class="meta">
+            <span class="who">Priya Nair</span>
+            <span class="when">Yesterday at 4:51 PM</span>
+          </div>
+          <div class="body">great — I&rsquo;ll drop the latest version somewhere once the spacing pass is done</div>
+        </div>
+      </div>
+
+      <div class="divider"><span>Today</span></div>
+
+      <div class="row">
+        <div class="avatar av-yusuf">Y</div>
+        <div>
+          <div class="meta">
+            <span class="who">Yusuf Demir</span>
+            <span class="when">9:14 AM</span>
+          </div>
+          <div class="body">Hey Maya &mdash; did you get a chance to review the onboarding flow file I shared yesterday?</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="avatar av-maya">M</div>
+        <div>
+          <div class="meta">
+            <span class="who">Maya Okonkwo</span>
+            <span class="when">9:43 AM</span>
+          </div>
+          <div class="body">Sorry, I missed it. Can you send the link again?</div>
+        </div>
+      </div>
+
+      <!-- dropbox file unfurl, sitting quietly below the exchange -->
+      <div class="file">
+        <div class="thumb">
+          <div class="frame"><i></i><i></i><i></i><i></i></div>
+          <div class="frame mid"><i></i><i></i><i></i><i></i></div>
+          <div class="frame"><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="file-info">
+          <div class="source">
+            <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#7c8a96"
+                d="M6 2 0 6l6 4-6 4 6 4 6-4-6-4 6-4-6-4Zm12 0-6 4 6 4 6-4-6-4ZM6 14l6 4 6-4-6-4-6 4Zm6 5.2L7.6 16.4 6 17.5l6 4 6-4-1.6-1.1L12 19.2Z"/>
+            </svg>
+            <span>Dropbox</span>
+          </div>
+          <div class="fname">Onboarding Flow.fig</div>
+          <div class="fmeta">Figma file &middot; 2.4 MB</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
